@@ -1,12 +1,8 @@
 package com.walking.jdbc;
 
-import com.walking.jdbc.service.migration.MigrationService;
-import com.walking.jdbc.service.migration.PassengerMigrationService;
-import com.walking.jdbc.service.migration.TicketMigrationService;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-
-import java.util.List;
+import org.flywaydb.core.Flyway;
 
 /**
  * Задача урока 129:
@@ -24,10 +20,12 @@ import java.util.List;
 public class Main {
     public static void main(String[] args) {
         var configuration = new HikariConfig("./src/main/resources/hikari.properties");
-
         var datasource = new HikariDataSource(configuration);
 
-        List.of(new PassengerMigrationService(datasource), new TicketMigrationService(datasource))
-                .forEach(MigrationService::migrate);
+        Flyway.configure()
+                .dataSource(datasource)
+                .baselineOnMigrate(true)
+                .load()
+                .migrate();
     }
 }
