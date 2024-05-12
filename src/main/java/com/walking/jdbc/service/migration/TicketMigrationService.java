@@ -1,13 +1,12 @@
 package com.walking.jdbc.service.migration;
 
-import com.walking.jdbc.db.Datasource;
-
+import javax.sql.DataSource;
 import java.sql.SQLException;
 
 public class TicketMigrationService implements MigrationService {
-    private final Datasource datasource;
+    private final DataSource datasource;
 
-    public TicketMigrationService(Datasource datasource) {
+    public TicketMigrationService(DataSource datasource) {
         this.datasource = datasource;
     }
 

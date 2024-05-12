@@ -1,9 +1,9 @@
 package com.walking.jdbc.repository;
 
-import com.walking.jdbc.db.Datasource;
 import com.walking.jdbc.mapper.TicketMapper;
 import com.walking.jdbc.model.Ticket;
 
+import javax.sql.DataSource;
 import java.sql.*;
 import java.util.Collection;
 import java.util.List;
@@ -11,10 +11,10 @@ import java.util.Optional;
 
 public class TicketRepository {
 
-    private final Datasource datasource;
+    private final DataSource datasource;
     private final TicketMapper mapper;
 
-    public TicketRepository(Datasource datasource, TicketMapper mapper) {
+    public TicketRepository(DataSource datasource, TicketMapper mapper) {
         this.datasource = datasource;
         this.mapper = mapper;
     }

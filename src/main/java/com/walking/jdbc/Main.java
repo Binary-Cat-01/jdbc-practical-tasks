@@ -1,9 +1,10 @@
 package com.walking.jdbc;
 
-import com.walking.jdbc.db.Datasource;
 import com.walking.jdbc.service.migration.MigrationService;
 import com.walking.jdbc.service.migration.PassengerMigrationService;
 import com.walking.jdbc.service.migration.TicketMigrationService;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 
 import java.util.List;
 
@@ -22,10 +23,9 @@ import java.util.List;
  */
 public class Main {
     public static void main(String[] args) {
-        var datasource = new Datasource(
-                "jdbc:postgresql://localhost:5432/test_db",
-                "postgres",
-                "postgres");
+        var configuration = new HikariConfig("./src/main/resources/hikari.properties");
+
+        var datasource = new HikariDataSource(configuration);
 
         List.of(new PassengerMigrationService(datasource), new TicketMigrationService(datasource))
                 .forEach(MigrationService::migrate);

@@ -7,6 +7,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import javax.sql.DataSource;
 import java.sql.Connection;
 import java.sql.SQLException;
 import java.util.function.Function;
@@ -18,7 +19,7 @@ import static org.mockito.Mockito.*;
 @ExtendWith(MockitoExtension.class)
 class TransactionTemplateTest {
     @Mock
-    private Datasource datasource;
+    private DataSource datasource;
 
     @InjectMocks
     private TransactionTemplate transactionTemplate;
@@ -36,7 +37,7 @@ class TransactionTemplateTest {
     }
 
     @Test
-    void runTransactional_dbUnavailable_failed() {
+    void runTransactional_dbUnavailable_failed() throws SQLException {
         doThrow(RuntimeException.class).when(datasource).getConnection();
         Function<Connection, Object> function = Object.class::cast; // Гарантированно безопасное выражение
 

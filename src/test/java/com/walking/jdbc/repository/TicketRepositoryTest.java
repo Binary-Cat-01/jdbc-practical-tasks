@@ -1,6 +1,5 @@
 package com.walking.jdbc.repository;
 
-import com.walking.jdbc.db.Datasource;
 import com.walking.jdbc.mapper.TicketMapper;
 import com.walking.jdbc.model.Ticket;
 import org.junit.jupiter.api.Test;
@@ -10,6 +9,7 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import javax.sql.DataSource;
 import java.sql.*;
 import java.time.LocalDateTime;
 import java.util.List;
@@ -24,7 +24,7 @@ class TicketRepositoryTest {
     private static final long PASSENGER_ID = 3L;
 
     @Mock
-    private Datasource datasource;
+    private DataSource datasource;
 
     @Mock
     private Connection connection;
@@ -413,7 +413,7 @@ class TicketRepositoryTest {
     }
 
     @Test
-    void createMany_emptyList_success() {
+    void createMany_emptyList_success() throws SQLException {
         List<Ticket> tickets = List.of();
 
         Executable executable = () -> ticketRepository.createMany(tickets);
@@ -572,7 +572,7 @@ class TicketRepositoryTest {
     }
 
     @Test
-    void updateMany_emptyList_success() {
+    void updateMany_emptyList_success() throws SQLException {
         List<Ticket> tickets = List.of();
 
         Executable executable = () -> ticketRepository.updateMany(tickets);
@@ -723,7 +723,7 @@ class TicketRepositoryTest {
     }
 
     @Test
-    void deleteAll_dbUnavailable_failed() {
+    void deleteAll_dbUnavailable_failed() throws SQLException {
 //        given
         doThrow(RuntimeException.class).when(datasource).getConnection();
 

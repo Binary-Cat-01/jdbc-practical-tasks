@@ -1,13 +1,14 @@
 package com.walking.jdbc.db;
 
+import javax.sql.DataSource;
 import java.sql.Connection;
 import java.util.function.Function;
 
 public class TransactionTemplate {
 
-    private final Datasource datasource;
+    private final DataSource datasource;
 
-    public TransactionTemplate(Datasource datasource) {
+    public TransactionTemplate(DataSource datasource) {
         this.datasource = datasource;
     }
 

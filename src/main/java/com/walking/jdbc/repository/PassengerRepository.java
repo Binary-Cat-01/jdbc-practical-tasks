@@ -1,9 +1,9 @@
 package com.walking.jdbc.repository;
 
-import com.walking.jdbc.db.Datasource;
 import com.walking.jdbc.mapper.PassengerMapper;
 import com.walking.jdbc.model.Passenger;
 
+import javax.sql.DataSource;
 import java.sql.*;
 import java.time.LocalDate;
 import java.util.Collection;
@@ -12,10 +12,10 @@ import java.util.Optional;
 
 public class PassengerRepository {
 
-    private final Datasource datasource;
+    private final DataSource datasource;
     private final PassengerMapper mapper;
 
-    public PassengerRepository(Datasource datasource, PassengerMapper mapper) {
+    public PassengerRepository(DataSource datasource, PassengerMapper mapper) {
         this.datasource = datasource;
         this.mapper = mapper;
     }
