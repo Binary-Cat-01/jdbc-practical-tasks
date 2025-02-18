@@ -35,6 +35,20 @@ public class PassengerRepository {
         }
     }
 
+    public void deleteAllPassenger() throws SQLException {
+        try (Connection connection = getConnection();
+             Statement statement = connection.createStatement()) {
+
+            var sql = """
+                    delete from passenger
+                    """;
+
+            statement.executeUpdate(sql);
+        } catch (SQLException e) {
+            throw new SQLException(e);
+        }
+    }
+
     //    Реализация защищенная от SQL-инъекций:
     public List<Passenger> findByFullName(String firstName, String lastName) {
         String sql = "select * from passenger where first_name = ? and last_name = ?";
