@@ -14,6 +14,27 @@ public class PassengerRepository {
         this.mapper = mapper;
     }
 
+    public void createPassengerTableIfNotExists() throws SQLException {
+        try (Connection connection = getConnection();
+             Statement statement = connection.createStatement()) {
+
+            var sql = """
+                    create table if not exists passenger (
+                      id                  bigserial       primary key,
+                      first_name          varchar(100)    not null,
+                      last_name           varchar(100)    not null,
+                      birth_date          date            not null,
+                      male                boolean         not null      default true,
+                      last_purchase       timestamp,
+                    );
+                    """;
+
+            statement.executeUpdate(sql);
+        } catch (SQLException e) {
+            throw new SQLException(e);
+        }
+    }
+
     //    Реализация защищенная от SQL-инъекций:
     public List<Passenger> findByFullName(String firstName, String lastName) {
         String sql = "select * from passenger where first_name = ? and last_name = ?";

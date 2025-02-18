@@ -12,6 +12,17 @@ import java.util.Collection;
 public class Main {
     private final static Logger log = LogManager.getLogger(Main.class);
 
+    public static void main(String[] args) {
+        PassengerMapper passengerMapper = new PassengerMapper();
+        PassengerRepository passengerRepository = new PassengerRepository(passengerMapper);
+
+        try {
+            passengerRepository.createPassengerTableIfNotExists();
+        } catch (SQLException e) {
+            log.error(e);
+        }
+    }
+
     private void createConnectionExample() {
         try (Connection connection = DriverManager.getConnection(
                 "jdbc:postgresql://localhost:5432/test_db",
