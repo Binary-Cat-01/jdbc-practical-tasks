@@ -2,6 +2,7 @@ package com.walking.jdbc.model;
 
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.Objects;
 
 public class Passenger {
     private Long id;
@@ -57,5 +58,31 @@ public class Passenger {
 
     public void setLastPurchase(LocalDateTime lastPurchase) {
         this.lastPurchase = lastPurchase;
+    }
+
+    @Override
+    public boolean equals(Object o) {
+        if (this == o) {
+            return true;
+        }
+        if (o == null || getClass() != o.getClass()) {
+            return false;
+        }
+
+        Passenger passenger = (Passenger) o;
+        return male == passenger.male && id.equals(passenger.id) && firstName.equals(
+                passenger.firstName) && lastName.equals(passenger.lastName) && birthDate.equals(
+                passenger.birthDate) && Objects.equals(lastPurchase, passenger.lastPurchase);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id.hashCode();
+        result = 31 * result + firstName.hashCode();
+        result = 31 * result + lastName.hashCode();
+        result = 31 * result + birthDate.hashCode();
+        result = 31 * result + Boolean.hashCode(male);
+        result = 31 * result + Objects.hashCode(lastPurchase);
+        return result;
     }
 }

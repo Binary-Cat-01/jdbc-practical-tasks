@@ -14,11 +14,8 @@ public class PassengerRepository {
         this.mapper = mapper;
     }
 
-    public void createPassengerTableIfNotExists() throws SQLException {
-        try (Connection connection = getConnection();
-             Statement statement = connection.createStatement()) {
-
-            var sql = """
+    public void createPassengerTableIfNotExists() {
+        String sql = """
                     create table if not exists passenger (
                       id                  bigserial       primary key,
                       first_name          varchar(100)    not null,
@@ -29,23 +26,26 @@ public class PassengerRepository {
                     );
                     """;
 
-            statement.executeUpdate(sql);
-        } catch (SQLException e) {
-            throw new SQLException(e);
-        }
-    }
-
-    public void deleteAllPassenger() throws SQLException {
         try (Connection connection = getConnection();
              Statement statement = connection.createStatement()) {
 
-            var sql = """
+            statement.executeUpdate(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при инициализации таблицы с пассажирами", e);
+        }
+    }
+
+    public void deleteAllPassengers() {
+        String sql = """
                     delete from passenger
                     """;
 
+        try (Connection connection = getConnection();
+             Statement statement = connection.createStatement()) {
+
             statement.executeUpdate(sql);
         } catch (SQLException e) {
-            throw new SQLException(e);
+            throw new RuntimeException("Ошибка при удалении пассажиров", e);
         }
     }
 
@@ -87,10 +87,14 @@ public class PassengerRepository {
 //    }
 
     public List<Passenger> findAll() {
+        String sql = """
+                select * from passenger
+                """;
+
         try (Connection connection = getConnection();
              Statement statement = connection.createStatement()) {
 
-            ResultSet rs = statement.executeQuery("select * from passenger");
+            ResultSet rs = statement.executeQuery(sql);
 
             return mapper.map(rs);
         } catch (SQLException e) {
