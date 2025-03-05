@@ -14,17 +14,20 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@ExtendWith(MockitoExtension.class)
 class PassengerRepositoryTest {
+    @InjectMocks
+    private PassengerRepository passengerRepository;
+
+    @Mock
     private static PassengerMapper passengerMapper;
+
     private static MockedStatic<DriverManager> driverManagerMockedStatic;
     private Connection connection;
     private Statement statement;
-    private PassengerRepository passengerRepository;
 
     @BeforeAll
     static void beforeAll() {
-        passengerMapper = Mockito.mock(PassengerMapper.class);
-
         driverManagerMockedStatic = Mockito.mockStatic(DriverManager.class);
     }
 
@@ -101,9 +104,9 @@ class PassengerRepositoryTest {
 //        when:
         passengerList = passengerRepository.findAll();
 //        then:
-        Mockito.verify(statement).executeQuery(validSql);
-
         assertEquals(1, passengerList.size());
+
+        Mockito.verify(statement).executeQuery(validSql);
     }
 
     @Test

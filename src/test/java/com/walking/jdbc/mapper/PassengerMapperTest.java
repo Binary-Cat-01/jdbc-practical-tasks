@@ -4,7 +4,10 @@ import com.walking.jdbc.model.Passenger;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
 import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.sql.*;
 import java.time.*;
@@ -13,14 +16,12 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+@ExtendWith(MockitoExtension.class)
 class PassengerMapperTest {
-    private static ResultSet resultSet;
     private PassengerMapper passengerMapper;
 
-    @BeforeAll
-    static void beforeAll() {
-        resultSet = Mockito.mock(ResultSet.class);
-    }
+    @Mock
+    private ResultSet resultSet;
 
     @BeforeEach
     void setUp() {
@@ -30,28 +31,32 @@ class PassengerMapperTest {
     @Test
     void map() throws SQLException {
 //        given:
-        LocalDate localDate = LocalDate.now();
-        LocalDateTime localDateTime = LocalDateTime.now();
+        Passenger testPassenger = getTestPassenger();
 
+        Mockito.doReturn(true,true, true, true, true, true, false).when(resultSet).next();
+
+        Mockito.doReturn(testPassenger.getId()).when(resultSet).getLong("id");
+        Mockito.doReturn(testPassenger.getFirstName()).when(resultSet).getString("first_name");
+        Mockito.doReturn(testPassenger.getLastName()).when(resultSet).getString("last_name");
+        Mockito.doReturn(testPassenger.isMale()).when(resultSet).getBoolean("male");
+        Mockito.doReturn(Date.valueOf(testPassenger.getBirthDate())).when(resultSet).getDate("birth_date");
+        Mockito.doReturn(Timestamp.valueOf(testPassenger.getLastPurchase())).when(resultSet).getTimestamp("last_purchase");
+//        when:
+        List<Passenger> passengerList = passengerMapper.map(resultSet);
+//        then:
+        assertEquals(testPassenger, passengerList.get(0));
+    }
+
+    private Passenger getTestPassenger() {
         Passenger passenger = new Passenger();
+
         passenger.setId(1L);
         passenger.setFirstName("first_name");
         passenger.setLastName("last_name");
         passenger.setMale(true);
-        passenger.setBirthDate(localDate);
-        passenger.setLastPurchase(localDateTime);
+        passenger.setBirthDate(LocalDate.now());
+        passenger.setLastPurchase(LocalDateTime.now());
 
-        Mockito.doReturn(true,true, true, true, true, true, false).when(resultSet).next();
-
-        Mockito.doReturn(1L).when(resultSet).getLong("id");
-        Mockito.doReturn("first_name").when(resultSet).getString("first_name");
-        Mockito.doReturn("last_name").when(resultSet).getString("last_name");
-        Mockito.doReturn(true).when(resultSet).getBoolean("male");
-        Mockito.doReturn(Date.valueOf(localDate)).when(resultSet).getDate("birth_date");
-        Mockito.doReturn(Timestamp.valueOf(localDateTime)).when(resultSet).getTimestamp("last_purchase");
-//        when:
-        List<Passenger> passengerList = passengerMapper.map(resultSet);
-//        then:
-        assertEquals(passenger, passengerList.get(0));
+        return passenger;
     }
 }
