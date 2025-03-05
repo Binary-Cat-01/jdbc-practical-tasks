@@ -13,6 +13,41 @@ public class PassengerRepository {
     public PassengerRepository(PassengerMapper mapper) {
         this.mapper = mapper;
     }
+    
+    public void createPassengerTableIfNotExists() {
+        String sql = """
+                    create table if not exists passenger (
+                      id                  bigserial       primary key,
+                      first_name          varchar(100)    not null,
+                      last_name           varchar(100)    not null,
+                      birth_date          date            not null,
+                      male                boolean         not null      default true,
+                      last_purchase       timestamp,
+                    );
+                    """;
+
+        try (Connection connection = getConnection();
+             Statement statement = connection.createStatement()) {
+
+            statement.executeUpdate(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при инициализации таблицы с пассажирами", e);
+        }
+    }
+
+    public void deleteAllPassengers() {
+        String sql = """
+                    delete from passenger
+                    """;
+
+        try (Connection connection = getConnection();
+             Statement statement = connection.createStatement()) {
+
+            statement.executeUpdate(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при удалении пассажиров", e);
+        }
+    }
 
     //    Реализация защищенная от SQL-инъекций:
     public List<Passenger> findByFullName(String firstName, String lastName) {
@@ -52,10 +87,14 @@ public class PassengerRepository {
 //    }
 
     public List<Passenger> findAll() {
+        String sql = """
+                select * from passenger
+                """;
+
         try (Connection connection = getConnection();
              Statement statement = connection.createStatement()) {
 
-            ResultSet rs = statement.executeQuery("select * from passenger");
+            ResultSet rs = statement.executeQuery(sql);
 
             return mapper.map(rs);
         } catch (SQLException e) {
