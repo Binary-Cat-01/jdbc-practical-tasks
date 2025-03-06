@@ -17,18 +17,17 @@ public class PassengerRepository {
 
     public void createPassengerTableIfNotExists() {
         String sql = """
-                    create table if not exists passenger (
-                      id                  bigserial       primary key,
-                      first_name          varchar(100)    not null,
-                      last_name           varchar(100)    not null,
-                      birth_date          date            not null,
-                      male                boolean         not null      default true,
-                      last_purchase       timestamp,
-                    );
-                    """;
+                create table if not exists passenger (
+                  id                  bigserial       primary key,
+                  first_name          varchar(100)    not null,
+                  last_name           varchar(100)    not null,
+                  birth_date          date            not null,
+                  male                boolean         not null      default true,
+                  last_purchase       timestamp,
+                );
+                """;
 
-        try (Connection connection = getConnection();
-             Statement statement = connection.createStatement()) {
+        try (Connection connection = getConnection(); Statement statement = connection.createStatement()) {
 
             statement.executeUpdate(sql);
         } catch (SQLException e) {
@@ -41,8 +40,7 @@ public class PassengerRepository {
                 select * from passenger
                 """;
 
-        try (Connection connection = getConnection();
-             Statement statement = connection.createStatement()) {
+        try (Connection connection = getConnection(); Statement statement = connection.createStatement()) {
 
             ResultSet result = statement.executeQuery(sql);
 
@@ -56,8 +54,7 @@ public class PassengerRepository {
     public List<Passenger> findByFullName(String firstName, String lastName) {
         String sql = "select * from passenger where first_name = ? and last_name = ?";
 
-        try (Connection connection = getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (Connection connection = getConnection(); PreparedStatement statement = connection.prepareStatement(sql)) {
 
             statement.setString(1, firstName);
             statement.setString(2, lastName);
@@ -73,8 +70,8 @@ public class PassengerRepository {
     public List<Passenger> findById(Long id) {
         String sql = "select from passenger where id = ?";
 
-        try (Connection connection = getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+        try (Connection connection = getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
+                sql)) {
 
             preparedStatement.setLong(1, id);
 
@@ -89,8 +86,8 @@ public class PassengerRepository {
     public List<Passenger> findByMale(Boolean male) {
         String sql = "select from passenger where male = ?";
 
-        try (Connection connection = getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+        try (Connection connection = getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
+                sql)) {
 
             preparedStatement.setBoolean(1, male);
 
@@ -102,11 +99,11 @@ public class PassengerRepository {
         }
     }
 
-    public List<Passenger> findByBirthDate (LocalDate birthDate) {
+    public List<Passenger> findByBirthDate(LocalDate birthDate) {
         String sql = "select from passenger where birth_date = ?";
 
-        try (Connection connection = getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+        try (Connection connection = getConnection(); PreparedStatement preparedStatement = connection.prepareStatement(
+                sql)) {
 
             preparedStatement.setDate(1, Date.valueOf(birthDate));
 
@@ -116,6 +113,67 @@ public class PassengerRepository {
         } catch (SQLException e) {
             throw new RuntimeException("Ошибка при получении пассажиров по дате рождения", e);
         }
+    }
+
+    public void add(List<Passenger> passengerList) {
+        String sql = """
+                insert into passenger (id, first_name, last_name, birth_date, male, last_purchase) values
+                (?, ?, ?, ?, ?, ?)
+                """;
+
+        try (Connection connection = getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+            for (Passenger passenger : passengerList) {
+                addCurrent(passenger, preparedStatement);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при добавлении пассажиров", e);
+        }
+    }
+
+    private void addCurrent(Passenger passenger, PreparedStatement preparedStatement) throws SQLException {
+            preparedStatement.setLong(1, passenger.getId());
+            preparedStatement.setString(2, passenger.getFirstName());
+            preparedStatement.setString(3, passenger.getLastName());
+            preparedStatement.setDate(4, Date.valueOf(passenger.getBirthDate()));
+            preparedStatement.setBoolean(5, passenger.isMale());
+            preparedStatement.setTimestamp(6, Timestamp.valueOf(passenger.getLastPurchase()));
+
+            preparedStatement.executeUpdate();
+    }
+
+    public void update(List<Passenger> passengerList) {
+        String sql = """
+                update passenger set
+                first_name = ?
+                last_name = ?
+                birth_date = ?
+                male = ?
+                last_purchase = ?
+                where id = ?
+                """;
+
+        try (Connection connection = getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+            for (Passenger passenger : passengerList) {
+                updateCurrent(passenger, preparedStatement);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при обновлении данных о пассажирах", e);
+        }
+    }
+
+    private void updateCurrent(Passenger passenger, PreparedStatement preparedStatement) throws SQLException {
+        preparedStatement.setString(1, passenger.getFirstName());
+        preparedStatement.setString(2, passenger.getLastName());
+        preparedStatement.setDate(3, Date.valueOf(passenger.getBirthDate()));
+        preparedStatement.setBoolean(4, passenger.isMale());
+        preparedStatement.setTimestamp(5, Timestamp.valueOf(passenger.getLastPurchase()));
+        preparedStatement.setLong(6, passenger.getId());
+
+        preparedStatement.executeUpdate();
     }
 
     public void deleteAllPassengers() {
@@ -130,6 +188,29 @@ public class PassengerRepository {
         } catch (SQLException e) {
             throw new RuntimeException("Ошибка при удалении пассажиров", e);
         }
+    }
+
+    public void delete(List<Passenger> passengerList) {
+        String sql = """
+                delete passenger
+                where id = ?
+                """;
+
+        try (Connection connection = getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+            for (Passenger passenger : passengerList) {
+                deleteCurrent(passenger, preparedStatement);
+            }
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при обновлении данных о пассажирах", e);
+        }
+    }
+
+    private void deleteCurrent(Passenger passenger, PreparedStatement preparedStatement) throws SQLException {
+        preparedStatement.setLong(1, passenger.getId());
+
+        preparedStatement.executeUpdate();
     }
 
     private Connection getConnection() throws SQLException {
