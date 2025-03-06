@@ -36,17 +36,19 @@ public class PassengerRepository {
         }
     }
 
-    public void deleteAllPassengers() {
+    public List<Passenger> findAll() {
         String sql = """
-                    delete from passenger
-                    """;
+                select * from passenger
+                """;
 
         try (Connection connection = getConnection();
              Statement statement = connection.createStatement()) {
 
-            statement.executeUpdate(sql);
+            ResultSet result = statement.executeQuery(sql);
+
+            return mapper.map(result);
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при удалении пассажиров", e);
+            throw new RuntimeException("Ошибка при получении пассажиров", e);
         }
     }
 
@@ -65,22 +67,6 @@ public class PassengerRepository {
             return mapper.map(result);
         } catch (SQLException e) {
             throw new RuntimeException(e);
-        }
-    }
-
-    public List<Passenger> findAll() {
-        String sql = """
-                select * from passenger
-                """;
-
-        try (Connection connection = getConnection();
-             Statement statement = connection.createStatement()) {
-
-            ResultSet result = statement.executeQuery(sql);
-
-            return mapper.map(result);
-        } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при получении пассажиров", e);
         }
     }
 
@@ -115,8 +101,8 @@ public class PassengerRepository {
             throw new RuntimeException("Ошибка при получении пассажиров по полу", e);
         }
     }
-    
-    public  List<Passenger> findByBirthDate (LocalDate birthDate) {
+
+    public List<Passenger> findByBirthDate (LocalDate birthDate) {
         String sql = "select from passenger where birth_date = ?";
 
         try (Connection connection = getConnection();
@@ -129,6 +115,20 @@ public class PassengerRepository {
             return mapper.map(result);
         } catch (SQLException e) {
             throw new RuntimeException("Ошибка при получении пассажиров по дате рождения", e);
+        }
+    }
+
+    public void deleteAllPassengers() {
+        String sql = """
+                    delete from passenger
+                    """;
+
+        try (Connection connection = getConnection();
+             Statement statement = connection.createStatement()) {
+
+            statement.executeUpdate(sql);
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при удалении пассажиров", e);
         }
     }
 
