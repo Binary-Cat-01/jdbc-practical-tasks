@@ -2,21 +2,16 @@ package com.walking.jdbc.repository;
 
 import com.walking.jdbc.mapper.TicketMapper;
 
+import javax.sql.DataSource;
 import java.sql.Connection;
-import java.sql.DriverManager;
 import java.sql.SQLException;
 
 public class TicketRepository {
     private final TicketMapper mapper;
+    private final DataSource dataSource;
 
-    public TicketRepository(TicketMapper mapper) {
+    public TicketRepository(TicketMapper mapper, DataSource dataSource) {
         this.mapper = mapper;
-    }
-
-    private Connection getConnection() throws SQLException {
-        return DriverManager.getConnection(
-                "jdbc:postgresql://localhost:5432/test_db",
-                "postgres",
-                "postgres");
+        this.dataSource = dataSource;
     }
 }
