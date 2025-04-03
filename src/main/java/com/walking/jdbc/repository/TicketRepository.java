@@ -219,4 +219,18 @@ public class TicketRepository {
             throw new RuntimeException("Ошибка при удалении билетов = %s".formatted(tickets), e);
         }
     }
+
+    public Long getNextId() {
+        String sql = "select nextval('ticket_id_seq') as nextId";
+
+        try (Connection connection = dataSource.getConnection();
+             Statement statement = connection.createStatement()) {
+
+            ResultSet result = statement.executeQuery(sql);
+
+            return result.getLong("nextId");
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при получении id для билета", e);
+        }
+    }
 }
