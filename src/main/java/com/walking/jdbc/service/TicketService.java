@@ -27,12 +27,15 @@ public class TicketService {
     public Ticket purchase(Passenger passenger, Flight flight) {
         Ticket ticket = new Ticket();
 
-        Long nextId = ticketRepository.getNextId();
-        ticket.setId(nextId);
+        ticket.setId(ticketRepository.getNextId());
         ticket.setPassengerId(passenger.getId());
         ticket.setFlightId(flight.getId());
 
-        ticket.setPurchaseDate(LocalDateTime.now());
+        LocalDateTime purchaseDate = LocalDateTime.now();
+
+        ticket.setPurchaseDate(purchaseDate);
+
+        passengerService.changeLastPurchase(passenger, purchaseDate);
 
         try (Connection connection = dataSource.getConnection()) {
 
@@ -40,8 +43,6 @@ public class TicketService {
 
             try {
                 boolean existsPassenger = passengerRepository.existsById(passenger.getId());
-
-                passengerService.changeLastPurchase(passenger, ticket.getPurchaseDate());
 
                 if (existsPassenger) {
                     updateLastPurchase(connection, passenger);
