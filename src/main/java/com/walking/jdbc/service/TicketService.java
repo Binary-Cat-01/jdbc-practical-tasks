@@ -41,7 +41,7 @@ public class TicketService {
             try {
                 boolean existsPassenger = passengerRepository.existsById(passenger.getId());
 
-                passengerService.changePurchaseDate(passenger, ticket.getPurchaseDate());
+                passengerService.changeLastPurchase(passenger, ticket.getPurchaseDate());
 
                 if (existsPassenger) {
                     updateLastPurchase(connection, passenger);

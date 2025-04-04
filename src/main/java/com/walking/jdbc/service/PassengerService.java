@@ -12,7 +12,7 @@ public class PassengerService {
         this.passengerRepository = passengerRepository;
     }
 
-    public Passenger changePurchaseDate(Passenger passenger, LocalDateTime time) {
+    public Passenger changeLastPurchase(Passenger passenger, LocalDateTime time) {
         passenger.setLastPurchase(time);
 
         return passenger;
