@@ -63,6 +63,22 @@ public class PassengerRepository {
         }
     }
 
+    public boolean existsById(Long id) {
+        String sql = "select from passenger where id = ?";
+
+        try (Connection connection = getConnection();
+             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+            preparedStatement.setLong(1, id);
+
+            ResultSet rs = preparedStatement.executeQuery();
+
+            return rs.next();
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при получении пассажиров", e);
+        }
+    }
+
     private Connection getConnection() throws SQLException {
         return DriverManager.getConnection(
                 "jdbc:postgresql://localhost:5432/test_db",
