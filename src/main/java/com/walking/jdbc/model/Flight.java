@@ -1,13 +1,13 @@
 package com.walking.jdbc.model;
 
-import java.sql.Timestamp;
+import java.time.LocalDateTime;
 
 public class Flight {
     private Long id;
     private Long departureAirportId;
     private Long arrivalAirportId;
-    private Timestamp departureDate;
-    private Timestamp arrivalDate;
+    private LocalDateTime departureDate;
+    private LocalDateTime arrivalDate;
     private String number;
 
     public Long getId() {
@@ -34,19 +34,19 @@ public class Flight {
         this.arrivalAirportId = arrivalAirportId;
     }
 
-    public Timestamp getDepartureDate() {
+    public LocalDateTime getDepartureDate() {
         return departureDate;
     }
 
-    public void setDepartureDate(Timestamp departureDate) {
+    public void setDepartureDate(LocalDateTime departureDate) {
         this.departureDate = departureDate;
     }
 
-    public Timestamp getArrivalDate() {
+    public LocalDateTime getArrivalDate() {
         return arrivalDate;
     }
 
-    public void setArrivalDate(Timestamp arrivalDate) {
+    public void setArrivalDate(LocalDateTime arrivalDate) {
         this.arrivalDate = arrivalDate;
     }
 
