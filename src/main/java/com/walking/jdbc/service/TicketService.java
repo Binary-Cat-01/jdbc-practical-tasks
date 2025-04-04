@@ -11,12 +11,14 @@ import java.sql.*;
 import java.time.LocalDateTime;
 
 public class TicketService {
+    private final PassengerService passengerService;
     private final TicketRepository ticketRepository;
     private final PassengerRepository passengerRepository;
     private final DataSource dataSource;
 
-    public TicketService(TicketRepository ticketRepository, PassengerRepository passengerRepository,
-            DataSource dataSource) {
+    public TicketService(PassengerService passengerService, TicketRepository ticketRepository,
+            PassengerRepository passengerRepository, DataSource dataSource) {
+        this.passengerService = passengerService;
         this.ticketRepository = ticketRepository;
         this.passengerRepository = passengerRepository;
         this.dataSource = dataSource;
@@ -38,6 +40,8 @@ public class TicketService {
 
             try {
                 boolean existsPassenger = passengerRepository.existsById(passenger.getId());
+
+                passengerService.changePurchaseDate(passenger, ticket.getPurchaseDate());
 
                 if (existsPassenger) {
                     updateLastPurchase(connection, passenger);
@@ -71,13 +75,12 @@ public class TicketService {
             preparedStatement.setLong(1, ticket.getId());
             preparedStatement.setLong(2, ticket.getPassengerId());
             preparedStatement.setLong(3, ticket.getFlightId());
-            preparedStatement.setTimestamp(4,
-                    Timestamp.valueOf(ticket.getPurchaseDate()));
+            preparedStatement.setTimestamp(
+                    4,Timestamp.valueOf(ticket.getPurchaseDate()));
 
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
-            throw new RuntimeException(
-                    "Ошибка при добавлении билета = %s".formatted(ticket), e);
+            throw new RuntimeException("Ошибка при добавлении билета = %s".formatted(ticket), e);
         }
     }
 
@@ -95,13 +98,13 @@ public class TicketService {
             preparedStatement.setString(3, passenger.getLastName());
             preparedStatement.setDate(4, Date.valueOf(passenger.getBirthDate()));
             preparedStatement.setBoolean(5, passenger.isMale());
-            preparedStatement.setTimestamp(6,
-                    Timestamp.valueOf(passenger.getLastPurchase()));
+            preparedStatement.setTimestamp(
+                    6, Timestamp.valueOf(passenger.getLastPurchase()));
 
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
-            throw new RuntimeException(
-                    "Ошибка при добавлении пассажира = %s".formatted(passenger), e);
+            throw new RuntimeException("Ошибка при добавлении пассажира = %s".formatted(passenger),
+                    e);
         }
     }
 
@@ -114,15 +117,15 @@ public class TicketService {
 
         try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
-            preparedStatement.setTimestamp(1,
-                    Timestamp.valueOf(passenger.getLastPurchase()));
+            preparedStatement.setTimestamp(
+                    1, Timestamp.valueOf(passenger.getLastPurchase()));
 
             preparedStatement.setLong(2, passenger.getId());
 
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
-            throw new RuntimeException(
-                    "Ошибка при обновлении пассажира = %s".formatted(passenger), e);
+            throw new RuntimeException("Ошибка при обновлении пассажира = %s".formatted(passenger),
+                    e);
         }
     }
 }
