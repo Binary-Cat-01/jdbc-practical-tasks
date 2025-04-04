@@ -24,7 +24,7 @@ public class TicketService {
         this.dataSource = dataSource;
     }
 
-    public Ticket buy(Passenger passenger, Flight flight) {
+    public Ticket purchase(Passenger passenger, Flight flight) {
         Ticket ticket = new Ticket();
 
         Long nextId = ticketRepository.getNextId();
