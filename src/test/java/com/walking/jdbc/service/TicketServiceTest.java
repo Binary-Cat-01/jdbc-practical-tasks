@@ -8,6 +8,7 @@ import com.walking.jdbc.repository.TicketRepository;
 import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -29,6 +30,9 @@ public class TicketServiceTest {
     TicketService ticketService;
 
     @Mock
+    PassengerService passengerService;
+
+    @Mock
     TicketRepository ticketRepository;
 
     @Mock
@@ -40,15 +44,17 @@ public class TicketServiceTest {
     @Test
     void buy_success_with_exists_passenger() throws SQLException {
 //        given:
-        Connection connection = mock(Connection.class);
+        var connection = mock(Connection.class);
         doReturn(connection).when(dataSource).getConnection();
 
-        PreparedStatement preparedStatement = mock(PreparedStatement.class);
+        var preparedStatement = mock(PreparedStatement.class);
         doReturn(preparedStatement).when(connection).prepareStatement(anyString());
 
         doReturn(getExpectedTicket().getId()).when(ticketRepository).getNextId();
 
         doReturn(true).when(passengerRepository).existsById(any());
+
+        var localDateTimeCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
 
 //        when:
         Ticket actualTicket = ticketService.buy(getExpectedExistsPassenger(), getExpectedFlight());
@@ -67,7 +73,14 @@ public class TicketServiceTest {
         * во время его передачи моку PassengerService. Затем сравнить его со значением у объекта
         * Ticket, который возвращается методом Purchase.
         * Буду считать, что изменение сигнатуры метода purchase нежелательно и
-        * воспользуюсь вариантом №2.*/
+        * воспользуюсь вариантом №2, чтобы попрактиковаться с ArgumentCaptor.*/
+
+        verify(passengerService).changeLastPurchase(
+                getExpectedExistsPassenger(), localDateTimeCaptor.capture());
+
+        assertEquals(localDateTimeCaptor.getValue(), actualTicket.getPurchaseDate());
+
+        
 
     }
 
