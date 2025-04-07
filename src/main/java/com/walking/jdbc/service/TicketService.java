@@ -25,17 +25,9 @@ public class TicketService {
     }
 
     public Ticket purchase(Passenger passenger, Flight flight) {
-        Ticket ticket = new Ticket();
+        Ticket ticket = buildTicketForPurchase(passenger, flight);
 
-        ticket.setId(ticketRepository.getNextId());
-        ticket.setPassengerId(passenger.getId());
-        ticket.setFlightId(flight.getId());
-
-        LocalDateTime purchaseDate = LocalDateTime.now();
-
-        ticket.setPurchaseDate(purchaseDate);
-
-        passengerService.changeLastPurchase(passenger, purchaseDate);
+        passengerService.changeLastPurchase(passenger, ticket.getPurchaseDate());
 
         try (Connection connection = dataSource.getConnection()) {
 
@@ -60,6 +52,20 @@ public class TicketService {
         } catch (SQLException e) {
             throw new RuntimeException("Ошибка при покупке билета", e);
         }
+
+        return ticket;
+    }
+
+    private Ticket buildTicketForPurchase(Passenger passenger, Flight flight) {
+        Ticket ticket = new Ticket();
+
+        ticket.setId(ticketRepository.getNextId());
+        ticket.setPassengerId(passenger.getId());
+        ticket.setFlightId(flight.getId());
+
+        LocalDateTime purchaseDate = LocalDateTime.now();
+
+        ticket.setPurchaseDate(purchaseDate);
 
         return ticket;
     }
