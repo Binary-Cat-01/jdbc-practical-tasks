@@ -12,16 +12,13 @@ public class TransactionProcessor {
         this.dataSource = dataSource;
     }
 
-    public void makeTransactional(List<TransactionalData> transactionalData) {
+    public void executeTransactional(List<Transaction> transactions) {
         try (Connection connection = dataSource.getConnection()) {
 
             connection.setAutoCommit(false);
 
-            for (TransactionalData transaction : transactionalData) {
-                var objectForTransaction = transaction.getObjectForTransaction();
-                var methodForTransaction = transaction.getMethodForTransaction();
-
-                methodForTransaction.executeTransactional(connection, objectForTransaction);
+            for (Transaction transaction : transactions) {
+                transaction.getMethod().executeTransactional(connection, transaction.getObject());
             }
 
             try {

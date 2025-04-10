@@ -1,8 +1,8 @@
 package com.walking.jdbc.service;
 
 import com.walking.jdbc.db.TransactionProcessor;
-import com.walking.jdbc.db.TransactionalData;
-import com.walking.jdbc.db.TransactionalExecutor;
+import com.walking.jdbc.db.Transaction;
+import com.walking.jdbc.db.Transactional;
 import com.walking.jdbc.model.Flight;
 import com.walking.jdbc.model.Passenger;
 import com.walking.jdbc.model.Ticket;
@@ -50,13 +50,13 @@ public class TicketService {
 
         boolean existsPassenger = passengerRepository.existsById(passenger.getId());
 
-        List<TransactionalData> transactionalData = new ArrayList<>();
-        transactionalData.add(
-                new TransactionalData(passenger, getTransactionalExecutorFor(existsPassenger)));
-        transactionalData.add(
-                new TransactionalData(ticket, ticketRepository::createTransactional));
+        List<Transaction> transactions = new ArrayList<>();
+        transactions.add(
+                new Transaction(passenger, getTransactionalExecutorFor(existsPassenger)));
+        transactions.add(
+                new Transaction(ticket, ticketRepository::createTransactional));
 
-        transactionProcessor.makeTransactional(transactionalData);
+        transactionProcessor.executeTransactional(transactions);
 
         return ticket;
     }
@@ -75,7 +75,7 @@ public class TicketService {
         return ticket;
     }
 
-    private TransactionalExecutor getTransactionalExecutorFor(boolean existsPassenger) {
+    private Transactional getTransactionalExecutorFor(boolean existsPassenger) {
         return existsPassenger
                 ? passengerRepository::updateLastPurchaseTransactional
                 : passengerRepository::createTransactional;
