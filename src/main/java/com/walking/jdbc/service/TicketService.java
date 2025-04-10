@@ -1,57 +1,62 @@
 package com.walking.jdbc.service;
 
+import com.walking.jdbc.db.TransactionProcessor;
+import com.walking.jdbc.db.TransactionalData;
+import com.walking.jdbc.db.TransactionalExecutor;
 import com.walking.jdbc.model.Flight;
 import com.walking.jdbc.model.Passenger;
 import com.walking.jdbc.model.Ticket;
 import com.walking.jdbc.repository.PassengerRepository;
 import com.walking.jdbc.repository.TicketRepository;
 
-import javax.sql.DataSource;
-import java.sql.*;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.List;
 
 public class TicketService {
     private final PassengerService passengerService;
     private final TicketRepository ticketRepository;
     private final PassengerRepository passengerRepository;
-    private final DataSource dataSource;
+    private final TransactionProcessor transactionProcessor;
 
     public TicketService(PassengerService passengerService, TicketRepository ticketRepository,
-            PassengerRepository passengerRepository, DataSource dataSource) {
+            PassengerRepository passengerRepository, TransactionProcessor transactionProcessor) {
         this.passengerService = passengerService;
         this.ticketRepository = ticketRepository;
         this.passengerRepository = passengerRepository;
-        this.dataSource = dataSource;
+        this.transactionProcessor = transactionProcessor;
     }
 
+    /*Логика транзакционного выполнения запросов к бд не должна находится в сервисе
+    работы с билетами. Он должен содержать только логику по обработке полученных данных и
+    созданию запроса на транзакционное выполнение нужных методов из репозиториев. Так как для
+    выполнения транзакционного запроса нам будут нужны методы из разных репозиториев и один и тот
+    же объект Connection, мы не можем разместить эту функциональность в одном из репозиториев.
+    Эту функциональность можно разместить в классе-посреднике - TransactionalProcessor.
+    В него нужно передавать список из пар: сущность с которой нужно выполнить метод репозитория и
+    код метода репозитория. Эти пары упакуем в класс transactionalData. Код конкретного метода
+    репозитория будем передавать как ссылку на метод, используя созданный функциональный интерфейс
+    TransactionalExecutor. Так же в классах репозиториях придется создать отдельные методы для
+    транзакционного выполнения. Они будут отличаться тем, что принимают объект Connection
+    как параметр метода, и в них нужно явно кастовать Object в нужную сущность (Ticket или Passenger).
+    Момент с кастом из Object потенциально может привести к ClassCastException, если использовать
+    объект TransactionalData, в котором тип фактически передаваемой сущности не совпадет с фактически
+    переданным кодом метода репозитория. Устранить эту проблему с помощью параметризации у меня не
+    получилось.*/
     public Ticket purchase(Passenger passenger, Flight flight) {
         Ticket ticket = buildTicketForPurchase(passenger, flight);
 
         passengerService.changeLastPurchase(passenger, ticket.getPurchaseDate());
 
-        try (Connection connection = dataSource.getConnection()) {
+        boolean existsPassenger = passengerRepository.existsById(passenger.getId());
 
-            connection.setAutoCommit(false);
+        List<TransactionalData> transactionalData = new ArrayList<>();
+        transactionalData.add(
+                new TransactionalData(passenger, getTransactionalExecutorFor(existsPassenger)));
+        transactionalData.add(
+                new TransactionalData(ticket, ticketRepository::createTransactional));
 
-            try {
-                boolean existsPassenger = passengerRepository.existsById(passenger.getId());
-
-                if (existsPassenger) {
-                    updateLastPurchase(connection, passenger);
-                } else {
-                    insertPassenger(connection, passenger);
-                }
-
-                insertTicket(connection, ticket);
-
-                connection.commit();
-            } catch (Exception e) {
-                connection.rollback();
-            }
-
-        } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при покупке билета", e);
-        }
+        transactionProcessor.makeTransactional(transactionalData);
 
         return ticket;
     }
@@ -70,69 +75,9 @@ public class TicketService {
         return ticket;
     }
 
-    private void insertTicket(Connection connection, Ticket ticket) {
-        String sql = """
-                insert into ticket
-                (id, passenger_id, flight_id, purchase_date) values
-                (?, ?, ?, ?)
-                """;
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-
-            preparedStatement.setLong(1, ticket.getId());
-            preparedStatement.setLong(2, ticket.getPassengerId());
-            preparedStatement.setLong(3, ticket.getFlightId());
-            preparedStatement.setTimestamp(
-                    4,Timestamp.valueOf(ticket.getPurchaseDate()));
-
-            preparedStatement.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при добавлении билета = %s".formatted(ticket), e);
-        }
-    }
-
-    private void insertPassenger(Connection connection, Passenger passenger) {
-        String sql = """
-                insert into passenger
-                (id, first_name, last_name, birth_date, male, last_purchase) values
-                (?, ?, ?, ?, ?, ?)
-                """;
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-
-            preparedStatement.setLong(1, passenger.getId());
-            preparedStatement.setString(2, passenger.getFirstName());
-            preparedStatement.setString(3, passenger.getLastName());
-            preparedStatement.setDate(4, Date.valueOf(passenger.getBirthDate()));
-            preparedStatement.setBoolean(5, passenger.isMale());
-            preparedStatement.setTimestamp(
-                    6, Timestamp.valueOf(passenger.getLastPurchase()));
-
-            preparedStatement.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при добавлении пассажира = %s".formatted(passenger),
-                    e);
-        }
-    }
-
-    private void updateLastPurchase(Connection connection, Passenger passenger) {
-        String sql = """
-                update passenger set
-                last_purchase = ?
-                where id = ?
-                """;
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-
-            preparedStatement.setTimestamp(
-                    1, Timestamp.valueOf(passenger.getLastPurchase()));
-
-            preparedStatement.setLong(2, passenger.getId());
-
-            preparedStatement.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при обновлении пассажира = %s".formatted(passenger),
-                    e);
-        }
+    private TransactionalExecutor getTransactionalExecutorFor(boolean existsPassenger) {
+        return existsPassenger
+                ? passengerRepository::updateLastPurchaseTransactional
+                : passengerRepository::createTransactional;
     }
 }

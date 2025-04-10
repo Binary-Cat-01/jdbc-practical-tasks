@@ -5,7 +5,6 @@ import com.walking.jdbc.model.Ticket;
 
 import javax.sql.DataSource;
 import java.sql.*;
-import java.util.Collection;
 import java.util.List;
 
 public class TicketRepository {
@@ -81,31 +80,31 @@ public class TicketRepository {
         }
     }
 
-    public Ticket add(Ticket ticket) {
-        String sql = """
-                insert into ticket
-                (id, passenger_id, flight_id, purchase_date) values
-                (?, ?, ?, ?)
-                """;
+    public Ticket create(Ticket ticket) {
+        try (Connection connection = dataSource.getConnection()) {
 
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-
-            preparedStatement.setLong(1, ticket.getId());
-            preparedStatement.setLong(2, ticket.getPassengerId());
-            preparedStatement.setLong(3, ticket.getFlightId());
-            preparedStatement.setTimestamp(
-                    4, Timestamp.valueOf(ticket.getPurchaseDate()));
-
-            preparedStatement.executeUpdate();
+            createWith(connection, ticket);
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при добавлении билета = %s".formatted(ticket), e);
+            throw new RuntimeException("Ошибка при добавлении билета '%s'".formatted(ticket), e);
         }
 
         return ticket;
     }
 
-    public void addAll(List<Ticket> tickets) {
+    public void createTransactional(Connection connection, Object ticket) {
+        if (!Ticket.class.equals(ticket.getClass())) {
+            throw new IllegalArgumentException(
+                    ("Объект '%s' должен принадлежать типу '%s', но принадлежит типу '%s'")
+                            .formatted(ticket, Ticket.class, ticket.getClass()));
+        }
+
+        createWith(connection, (Ticket) ticket);
+    }
+
+    //В данном случае мы хотим вставить все записи, а если в процессе возникнет исключение,
+    //откатить изменения. Так как обрабатывать частичную вставку мы не планируем, нужно выполнить
+    //все запросы в батче транзакционно.
+    public void createAll(List<Ticket> tickets) {
         String sql = """
                 insert into ticket
                 (id, passenger_id, flight_id, purchase_date) values
@@ -114,6 +113,8 @@ public class TicketRepository {
 
         try (Connection connection = dataSource.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+            connection.setAutoCommit(false);
 
             for (Ticket ticket : tickets) {
                 preparedStatement.setLong(1, ticket.getId());
@@ -126,8 +127,19 @@ public class TicketRepository {
             }
 
             preparedStatement.executeBatch();
+
+            try {
+                connection.commit();
+            } catch (Exception e) {
+                connection.rollback();
+
+                /*Если здесь мы перехватили исключение, произошедшее во время транзакции и выполнили
+                 * роллбэк, должны ли мы пробросить это исключение (или новое исключение SQLException),
+                 * которое будет перехвачено следующим блоком catch? Кажется если этого не сделать,
+                 * метод вызывавший createAll будет считать, что создание билетов выполнено успешно.*/
+            }
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при добавлении билетов = %s".formatted(tickets), e);
+            throw new RuntimeException("Ошибка при добавлении билетов '%s'".formatted(tickets), e);
         }
     }
 
@@ -152,7 +164,7 @@ public class TicketRepository {
 
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при обновлении билета = %s".formatted(ticket), e);
+            throw new RuntimeException("Ошибка при обновлении билета '%s'".formatted(ticket), e);
         }
 
         return ticket;
@@ -170,6 +182,8 @@ public class TicketRepository {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
+            connection.setAutoCommit(false);
+
             for (Ticket ticket : tickets) {
                 preparedStatement.setLong(1, ticket.getId());
                 preparedStatement.setLong(2, ticket.getPassengerId());
@@ -181,8 +195,14 @@ public class TicketRepository {
             }
 
             preparedStatement.executeBatch();
+
+            try {
+                connection.commit();
+            } catch (Exception e) {
+                connection.rollback();
+            }
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при обновлении билетов = %s".formatted(tickets), e);
+            throw new RuntimeException("Ошибка при обновлении билетов '%s'".formatted(tickets), e);
         }
     }
 
@@ -196,7 +216,7 @@ public class TicketRepository {
 
             preparedStatement.executeUpdate();
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при удалении билета = %s".formatted(ticket), e);
+            throw new RuntimeException("Ошибка при удалении билета '%s'".formatted(ticket), e);
         }
 
         return ticket;
@@ -208,6 +228,8 @@ public class TicketRepository {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
+            connection.setAutoCommit(false);
+
             for (Ticket ticket : tickets) {
                 preparedStatement.setLong(1, ticket.getId());
 
@@ -215,8 +237,14 @@ public class TicketRepository {
             }
 
             preparedStatement.executeBatch();
+
+            try {
+                connection.commit();
+            } catch (Exception e) {
+                connection.rollback();
+            }
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при удалении билетов = %s".formatted(tickets), e);
+            throw new RuntimeException("Ошибка при удалении билетов '%s'".formatted(tickets), e);
         }
     }
 
@@ -230,7 +258,30 @@ public class TicketRepository {
 
             return result.getLong("nextId");
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при получении id для билета", e);
+            throw new RuntimeException("Ошибка при получении значения id для билета", e);
+        }
+    }
+
+    /*логику запроса к бд, с помощью конкретного объекта Connection вынес в приватный метод,
+    * который используется и для транзакционного и для не транзакционного выполнения*/
+    private void createWith(Connection connection, Ticket ticket) {
+        String sql = """
+                insert into ticket
+                (id, passenger_id, flight_id, purchase_date) values
+                (?, ?, ?, ?)
+                """;
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+            preparedStatement.setLong(1, ticket.getId());
+            preparedStatement.setLong(2, ticket.getPassengerId());
+            preparedStatement.setLong(3, ticket.getFlightId());
+            preparedStatement.setTimestamp(
+                    4,Timestamp.valueOf(ticket.getPurchaseDate()));
+
+            preparedStatement.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при создании билета '%s'".formatted(ticket), e);
         }
     }
 }
