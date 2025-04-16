@@ -28,33 +28,24 @@ public class TicketService {
     }
 
     /*Логика транзакционного выполнения запросов к бд не должна находится в сервисе
-    работы с билетами. Он должен содержать только логику по обработке полученных данных и
-    созданию запроса на транзакционное выполнение нужных методов из репозиториев. Так как для
-    выполнения транзакционного запроса нам будут нужны методы из разных репозиториев и один и тот
-    же объект Connection, мы не можем разместить эту функциональность в одном из репозиториев.
-    Эту функциональность можно разместить в классе-посреднике - TransactionalProcessor.
-    В него нужно передавать список из пар: сущность с которой нужно выполнить метод репозитория и
-    код метода репозитория. Эти пары упакуем в класс transactionalData. Код конкретного метода
-    репозитория будем передавать как ссылку на метод, используя созданный функциональный интерфейс
-    TransactionalExecutor. Так же в классах репозиториях придется создать отдельные методы для
-    транзакционного выполнения. Они будут отличаться тем, что принимают объект Connection
-    как параметр метода, и в них нужно явно кастовать Object в нужную сущность (Ticket или Passenger).
-    Момент с кастом из Object потенциально может привести к ClassCastException, если использовать
-    объект TransactionalData, в котором тип фактически передаваемой сущности не совпадет с фактически
-    переданным кодом метода репозитория. Устранить эту проблему с помощью параметризации у меня не
-    получилось.*/
+    * работы с билетами. Он должен содержать только логику по обработке полученных данных и
+    * созданию запроса на транзакционное выполнение нужных методов из репозиториев. Так как для
+    * выполнения транзакционного запроса нам будут нужны методы из разных репозиториев и один и тот
+    * же объект Connection, мы не можем разместить эту функциональность в одном из репозиториев.
+    * Эту функциональность можно разместить в классе-посреднике - TransactionProcessor.
+    * Ему будем передавать список значений: объект для которого нужно выполнить метод репозитория и
+    * код метода репозитория. Для упаковки кода метода репозитория создадим функциональный интерфейс
+    * Transactional, а пары значений завернем в класс Transaction.
+    * В классах репозиториях придется создать отдельные методы для
+    * транзакционного взаимодействия с бд. От существующих методов взаимодействия с бд
+    * они будут отличаться тем, что принимают объект Connection как параметр метода и в них нужно
+    * явно кастовать Object в корректный для данного репозитория тип объекта (Ticket или Passenger).*/
     public Ticket purchase(Passenger passenger, Flight flight) {
         Ticket ticket = buildTicketForPurchase(passenger, flight);
 
         passengerService.changeLastPurchase(passenger, ticket.getPurchaseDate());
 
-        boolean existsPassenger = passengerRepository.existsById(passenger.getId());
-
-        List<Transaction> transactions = new ArrayList<>();
-        transactions.add(
-                new Transaction(passenger, getTransactionalExecutorFor(existsPassenger)));
-        transactions.add(
-                new Transaction(ticket, ticketRepository::createTransactional));
+        List<Transaction> transactions = getTransactionsForPurchase(passenger, ticket);
 
         transactionProcessor.executeTransactional(transactions);
 
@@ -75,8 +66,21 @@ public class TicketService {
         return ticket;
     }
 
-    private Transactional getTransactionalExecutorFor(boolean existsPassenger) {
-        return existsPassenger
+    private List<Transaction> getTransactionsForPurchase(Passenger passenger, Ticket ticket) {
+        List<Transaction> transactions = new ArrayList<>();
+
+        boolean isExistsPassenger = passengerRepository.existsById(passenger.getId());
+
+        transactions.add(
+                new Transaction(passenger, getTransactionalExecutorFor(isExistsPassenger)));
+        transactions.add(
+                new Transaction(ticket, ticketRepository::createTransactional));
+
+        return transactions;
+    }
+
+    private Transactional getTransactionalExecutorFor(boolean isExistsPassenger) {
+        return isExistsPassenger
                 ? passengerRepository::updateLastPurchaseTransactional
                 : passengerRepository::createTransactional;
     }
