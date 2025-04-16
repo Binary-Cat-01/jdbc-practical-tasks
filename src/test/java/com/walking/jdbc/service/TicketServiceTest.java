@@ -1,25 +1,23 @@
 package com.walking.jdbc.service;
 
+import com.walking.jdbc.db.Transaction;
+import com.walking.jdbc.db.TransactionProcessor;
 import com.walking.jdbc.model.Flight;
 import com.walking.jdbc.model.Passenger;
 import com.walking.jdbc.model.Ticket;
 import com.walking.jdbc.repository.PassengerRepository;
 import com.walking.jdbc.repository.TicketRepository;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.ArgumentCaptor;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
+import org.mockito.invocation.InvocationOnMock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
-import javax.sql.DataSource;
-
 import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.SQLException;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.Month;
+import java.util.List;
 
 import static org.mockito.Mockito.*;
 import static org.junit.jupiter.api.Assertions.*;
@@ -39,49 +37,76 @@ public class TicketServiceTest {
     PassengerRepository passengerRepository;
 
     @Mock
-    DataSource dataSource;
+    TransactionProcessor transactionProcessor;
+
+    @Captor
+    ArgumentCaptor<LocalDateTime> localDateTimeCaptor;
 
     @Test
-    void buy_success_with_exists_passenger() throws SQLException {
+    void purchase_success_with_exists_passenger() {
 //        given:
-        var connection = mock(Connection.class);
-        doReturn(connection).when(dataSource).getConnection();
+        Ticket expectedTicket = getTicket();
 
-        var preparedStatement = mock(PreparedStatement.class);
-        doReturn(preparedStatement).when(connection).prepareStatement(anyString());
+        doReturn(expectedTicket.getId()).when(ticketRepository).getNextId();
 
-        doReturn(getExpectedTicket().getId()).when(ticketRepository).getNextId();
+        Passenger expectedPassenger = getExistsPassenger();
 
-        doReturn(true).when(passengerRepository).existsById(any());
+        doReturn(true).when(passengerRepository).existsById(
+               expectedPassenger.getId());
 
-        var localDateTimeCaptor = ArgumentCaptor.forClass(LocalDateTime.class);
+        doAnswer(TicketServiceTest::setPassengerLastPurchase)
+                .when(passengerService).changeLastPurchase(
+                        any(Passenger.class), any(LocalDateTime.class));
+
+        doAnswer(TicketServiceTest::executeAllTransaction).when(transactionProcessor)
+                                                          .executeTransactional(anyList());
 
 //        when:
-        Ticket actualTicket = ticketService.buy(getExpectedExistsPassenger(), getExpectedFlight());
+        Ticket actualTicket = ticketService.purchase(expectedPassenger, getFlight());
 
 //        then:
-        assertEquals(getExpectedTicket().getId(), actualTicket.getId());
-        assertEquals(getExpectedTicket().getPassengerId(), actualTicket.getPassengerId());
-        assertEquals(getExpectedTicket().getFlightId(), actualTicket.getFlightId());
+        assertEquals(expectedTicket.getId(), actualTicket.getId());
+        assertEquals(expectedTicket.getPassengerId(), actualTicket.getPassengerId());
+        assertEquals(expectedTicket.getFlightId(), actualTicket.getFlightId());
 
         /* Через assertEquals purchaseDate проверить не получится, т.к. она будет сгенерирована
-        * в процессе выполнения и у нас нет доступа к объекту Ticket, т.к. он создается
-        * внутри тестируемого метода.
-        * Вариант 1: Если передавать время создания билета, как параметр метода purchase,
-        * можно замокать его в тестовом методе.
-        * Вариант 2: Перехватить сгенерированное значение purchaseDate, с помощью ArgumentCaptor
-        * во время его передачи моку PassengerService. Затем сравнить его со значением у объекта
-        * Ticket, который возвращается методом Purchase.
-        * Буду считать, что изменение сигнатуры метода purchase нежелательно и
-        * воспользуюсь вариантом №2, чтобы попрактиковаться с ArgumentCaptor.*/
-
+         * в процессе выполнения и у нас нет доступа к объекту Ticket, т.к. он создается
+         * внутри тестируемого метода.
+         *
+         * Вариант 1: Передавать время создания билета, как параметр метода purchase.
+         * Тогда можно замокать его в тестовом методе.
+         *
+         * Вариант 2: Вынести логику определения времени создания билета в отдельный класс,
+         * например PurchaseDateService. Тогда можно замокать его в тестовом методе.
+         *
+         * Вариант 3: Перехватить сгенерированное значение purchaseDate с помощью ArgumentCaptor
+         * во время его передачи моку PassengerService. Затем сравнить его со значением у объекта
+         * Ticket, который возвращается методом Purchase.
+         *
+         * Буду считать, что изменение сигнатуры метода purchase нежелательно - вариант №1 отпадает.
+         * Воспользуюсь вариантом №3, чтобы попрактиковаться с ArgumentCaptor, хотя с точки зрения
+         * декомпозиции вероятно стоило бы реализовать вариант №2*/
         verify(passengerService).changeLastPurchase(
-                getExpectedExistsPassenger(), localDateTimeCaptor.capture());
+                eq(expectedPassenger), localDateTimeCaptor.capture());
 
         assertEquals(localDateTimeCaptor.getValue(), actualTicket.getPurchaseDate());
+        assertEquals(expectedPassenger.getLastPurchase(), actualTicket.getPurchaseDate());
 
-        
+        /*Ссылки на методы (и объекты функциональных интерфейсов, которые для них используются)
+        * сравнить через assertEquals не получится (это кстати было интересное открытие =).
+        * Поэтому, чтобы протестировать логику выбора нужного метод-референса в зависимости
+        * от существования пассажира использую следующий подход. Мок transactionalProcessor
+        * сконфигурирую так, чтобы он выполнял фактически переданные в него объекты
+        * Transaction. А с помощью verify проверю, что запускались именно те метод-референсы,
+        * которые ожидаются в данном тестовом сценарии. */
 
+        var inOrder = inOrder(passengerRepository, ticketRepository);
+
+        inOrder.verify(passengerRepository).updateLastPurchaseTransactional(
+                any(Connection.class), eq(expectedPassenger));
+
+        inOrder.verify(ticketRepository).createTransactional(
+                any(Connection.class), eq(actualTicket));
     }
 
     @Test
@@ -96,55 +121,78 @@ public class TicketServiceTest {
 
     }
 
-    private Passenger getExpectedNotExistsPassenger() {
+    private Passenger getNotExistsPassenger() {
         Passenger passenger = new Passenger();
 
         passenger.setId(1L);
         passenger.setFirstName("Jack");
         passenger.setLastName("Black");
-        passenger.setBirthDate(LocalDate.now());
+        passenger.setBirthDate(LocalDate.of(1990, Month.JANUARY, 1));
         passenger.setMale(true);
         passenger.setLastPurchase(null);
 
         return passenger;
     }
 
-    private Passenger getExpectedExistsPassenger() {
+    private Passenger getExistsPassenger() {
         Passenger passenger = new Passenger();
 
         passenger.setId(1L);
         passenger.setFirstName("Jack");
         passenger.setLastName("Black");
-        passenger.setBirthDate(LocalDate.now());
+        passenger.setBirthDate(LocalDate.of(1990, Month.JANUARY, 1));
         passenger.setMale(true);
-        passenger.setLastPurchase(LocalDateTime.now());
+        passenger.setLastPurchase(
+                LocalDateTime.of(2025, Month.APRIL, 1, 12, 0));
 
         return passenger;
     }
 
-    private Flight getExpectedFlight() {
+    private Flight getFlight() {
         Flight flight = new Flight();
 
         flight.setId(1L);
         flight.setDepartureAirportId(1L);
         flight.setArrivalAirportId(2L);
-        flight.setDepartureDate(LocalDateTime.now());
-        flight.setArrivalDate(LocalDateTime.now().plusHours(2));
+        flight.setDepartureDate(
+                LocalDateTime.of(2025, Month.APRIL, 1, 12, 0));
+        flight.setArrivalDate(flight.getDepartureDate().plusHours(2));
         flight.setNumber("TEST");
-        
+
         return  flight;
     }
 
-    private Ticket getExpectedTicket() {
+    private Ticket getTicket() {
         Ticket ticket = new Ticket();
 
         ticket.setId(1L);
-        ticket.setPassengerId(getExpectedExistsPassenger().getId());
-        ticket.setFlightId(getExpectedFlight().getId());
-
-        LocalDateTime purchaseTime = LocalDateTime.now();
-        ticket.setPurchaseDate(purchaseTime);
+        ticket.setPassengerId(getExistsPassenger().getId());
+        ticket.setFlightId(getFlight().getId());
+        ticket.setPurchaseDate(
+                LocalDateTime.of(2025, Month.APRIL, 1, 12, 0));
 
         return ticket;
+    }
+
+    private static Object setPassengerLastPurchase(InvocationOnMock invocation) {
+        LocalDateTime purchaseDate = invocation.getArgument(1);
+
+        Passenger passenger = invocation.getArgument(0);
+
+        passenger.setLastPurchase(purchaseDate);
+
+        return passenger;
+    }
+
+    private static Object executeAllTransaction(InvocationOnMock invocation) {
+        List<Transaction> transactionList = invocation.getArgument(0);
+
+        Connection connectionMock = mock(Connection.class);
+
+        transactionList.forEach(transaction -> transaction.getMethod()
+                                                          .executeTransactional(connectionMock,
+                                                                  transaction.getObject()));
+
+        return null;
     }
 }
