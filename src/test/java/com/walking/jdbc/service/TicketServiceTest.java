@@ -45,14 +45,11 @@ public class TicketServiceTest {
     @Test
     void purchase_success_with_exists_passenger() {
 //        given:
-        var flight = createFlight();
-
         var existsPassenger = createPassenger(LocalDateTime.now());
-
         doReturn(true).when(passengerRepository).existsById(existsPassenger.getId());
 
+        var flight = createFlight();
         var expectedTicket = createTicket(existsPassenger.getId(), flight.getId());
-
         doReturn(expectedTicket.getId()).when(ticketRepository).getNextId();
 
         doAnswer(TicketServiceTest::setPassengerLastPurchase)
@@ -63,7 +60,7 @@ public class TicketServiceTest {
                                                           .executeTransactional(anyList());
 
 //        when:
-        var actualTicket = ticketService.purchase(existsPassenger, createFlight());
+        var actualTicket = ticketService.purchase(existsPassenger, flight);
 
 //        then:
         assertEquals(expectedTicket.getId(), actualTicket.getId());
@@ -100,7 +97,7 @@ public class TicketServiceTest {
         * сконфигурирую так, чтобы он выполнял фактически переданные в него объекты
         * Transaction. А с помощью verify проверю, что запускались именно те метод-референсы,
         * которые ожидаются в данном тестовом сценарии. */
-
+        
         var inOrder = inOrder(passengerRepository, ticketRepository);
 
         inOrder.verify(passengerRepository).updateLastPurchaseTransactional(
@@ -113,13 +110,41 @@ public class TicketServiceTest {
     @Test
     void purchase_success_with_not_exists_passenger() {
 //        given:
+        var notExistsPassenger = createPassenger(null);
+        doReturn(false).when(passengerRepository).existsById(notExistsPassenger.getId());
 
+        var flight = createFlight();
+        var expectedTicket = createTicket(notExistsPassenger.getId(), flight.getId());
+        doReturn(expectedTicket.getId()).when(ticketRepository).getNextId();
+
+        doAnswer(TicketServiceTest::setPassengerLastPurchase)
+                .when(passengerService).changeLastPurchase(
+                        any(Passenger.class), any(LocalDateTime.class));
+
+        doAnswer(TicketServiceTest::executeAllTransaction).when(transactionProcessor)
+                                                          .executeTransactional(anyList());
 
 //        when:
-
+        var actualTicket = ticketService.purchase(notExistsPassenger, flight);
 
 //        then:
+        assertEquals(expectedTicket.getId(), actualTicket.getId());
+        assertEquals(expectedTicket.getPassengerId(), actualTicket.getPassengerId());
+        assertEquals(expectedTicket.getFlightId(), actualTicket.getFlightId());
 
+        verify(passengerService).changeLastPurchase(
+                eq(notExistsPassenger), localDateTimeCaptor.capture());
+
+        assertEquals(localDateTimeCaptor.getValue(), actualTicket.getPurchaseDate());
+        assertEquals(notExistsPassenger.getLastPurchase(), actualTicket.getPurchaseDate());
+
+        var inOrder = inOrder(passengerRepository, ticketRepository);
+
+        inOrder.verify(passengerRepository).createTransactional(
+                any(Connection.class), eq(notExistsPassenger));
+
+        inOrder.verify(ticketRepository).createTransactional(
+                any(Connection.class), eq(actualTicket));
     }
 
     private Flight createFlight() {
