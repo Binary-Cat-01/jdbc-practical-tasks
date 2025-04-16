@@ -43,6 +43,10 @@ public class TicketService {
     public Ticket purchase(Passenger passenger, Flight flight) {
         Ticket ticket = buildTicketForPurchase(passenger, flight);
 
+        /*Если транзакция будет откачена, у объекта passenger в памяти станет некорректное
+        * значение lastPurchase, т.к. мы меняем его до выполнения транзакции. Это может
+        * быть проблемой, если этот же объект продолжает использоваться другими методами.
+        * Но чтобы не усложнять буду считать, что он используется только в этом методе */
         passengerService.changeLastPurchase(passenger, ticket.getPurchaseDate());
 
         List<Transaction> transactions = getTransactionsForPurchase(passenger, ticket);
