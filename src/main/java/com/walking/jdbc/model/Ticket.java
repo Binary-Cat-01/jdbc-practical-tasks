@@ -40,4 +40,33 @@ public class Ticket {
     public void setPurchaseDate(LocalDateTime purchaseDate) {
         this.purchaseDate = purchaseDate;
     }
+
+    @Override
+    public boolean equals(Object object) {
+        if (this == object) {
+            return true;
+        }
+        if (object == null || getClass() != object.getClass()) {
+            return false;
+        }
+
+        Ticket ticket = (Ticket) object;
+        return id.equals(ticket.id) && passengerId.equals(ticket.passengerId) && flightId.equals(
+                ticket.flightId) && purchaseDate.equals(ticket.purchaseDate);
+    }
+
+    @Override
+    public int hashCode() {
+        int result = id.hashCode();
+        result = 31 * result + passengerId.hashCode();
+        result = 31 * result + flightId.hashCode();
+        result = 31 * result + purchaseDate.hashCode();
+        return result;
+    }
+
+    @Override
+    public String toString() {
+        return "Ticket{" + "id=" + id + ", passengerId=" + passengerId + ", flightId=" + flightId
+                + ", purchaseDate=" + purchaseDate + '}';
+    }
 }
