@@ -25,34 +25,35 @@ import static org.junit.jupiter.api.Assertions.*;
 @ExtendWith(MockitoExtension.class)
 public class TicketServiceTest {
     @InjectMocks
-    TicketService ticketService;
+    private TicketService ticketService;
 
     @Mock
-    PassengerService passengerService;
+    private PassengerService passengerService;
 
     @Mock
-    TicketRepository ticketRepository;
+    private TicketRepository ticketRepository;
 
     @Mock
-    PassengerRepository passengerRepository;
+    private PassengerRepository passengerRepository;
 
     @Mock
-    TransactionProcessor transactionProcessor;
+    private TransactionProcessor transactionProcessor;
 
     @Captor
-    ArgumentCaptor<LocalDateTime> localDateTimeCaptor;
+    private ArgumentCaptor<LocalDateTime> localDateTimeCaptor;
 
     @Test
     void purchase_success_with_exists_passenger() {
 //        given:
-        Ticket expectedTicket = getTicket();
+        var flight = createFlight();
+
+        var existsPassenger = createPassenger(LocalDateTime.now());
+
+        doReturn(true).when(passengerRepository).existsById(existsPassenger.getId());
+
+        var expectedTicket = createTicket(existsPassenger.getId(), flight.getId());
 
         doReturn(expectedTicket.getId()).when(ticketRepository).getNextId();
-
-        Passenger expectedPassenger = getExistsPassenger();
-
-        doReturn(true).when(passengerRepository).existsById(
-               expectedPassenger.getId());
 
         doAnswer(TicketServiceTest::setPassengerLastPurchase)
                 .when(passengerService).changeLastPurchase(
@@ -62,7 +63,7 @@ public class TicketServiceTest {
                                                           .executeTransactional(anyList());
 
 //        when:
-        Ticket actualTicket = ticketService.purchase(expectedPassenger, getFlight());
+        var actualTicket = ticketService.purchase(existsPassenger, createFlight());
 
 //        then:
         assertEquals(expectedTicket.getId(), actualTicket.getId());
@@ -87,10 +88,10 @@ public class TicketServiceTest {
          * Воспользуюсь вариантом №3, чтобы попрактиковаться с ArgumentCaptor, хотя с точки зрения
          * декомпозиции вероятно стоило бы реализовать вариант №2*/
         verify(passengerService).changeLastPurchase(
-                eq(expectedPassenger), localDateTimeCaptor.capture());
+                eq(existsPassenger), localDateTimeCaptor.capture());
 
         assertEquals(localDateTimeCaptor.getValue(), actualTicket.getPurchaseDate());
-        assertEquals(expectedPassenger.getLastPurchase(), actualTicket.getPurchaseDate());
+        assertEquals(existsPassenger.getLastPurchase(), actualTicket.getPurchaseDate());
 
         /*Ссылки на методы (и объекты функциональных интерфейсов, которые для них используются)
         * сравнить через assertEquals не получится (это кстати было интересное открытие =).
@@ -103,14 +104,14 @@ public class TicketServiceTest {
         var inOrder = inOrder(passengerRepository, ticketRepository);
 
         inOrder.verify(passengerRepository).updateLastPurchaseTransactional(
-                any(Connection.class), eq(expectedPassenger));
+                any(Connection.class), eq(existsPassenger));
 
         inOrder.verify(ticketRepository).createTransactional(
                 any(Connection.class), eq(actualTicket));
     }
 
     @Test
-    void buy_success_with_not_exists_passenger() {
+    void purchase_success_with_not_exists_passenger() {
 //        given:
 
 
@@ -121,34 +122,7 @@ public class TicketServiceTest {
 
     }
 
-    private Passenger getNotExistsPassenger() {
-        Passenger passenger = new Passenger();
-
-        passenger.setId(1L);
-        passenger.setFirstName("Jack");
-        passenger.setLastName("Black");
-        passenger.setBirthDate(LocalDate.of(1990, Month.JANUARY, 1));
-        passenger.setMale(true);
-        passenger.setLastPurchase(null);
-
-        return passenger;
-    }
-
-    private Passenger getExistsPassenger() {
-        Passenger passenger = new Passenger();
-
-        passenger.setId(1L);
-        passenger.setFirstName("Jack");
-        passenger.setLastName("Black");
-        passenger.setBirthDate(LocalDate.of(1990, Month.JANUARY, 1));
-        passenger.setMale(true);
-        passenger.setLastPurchase(
-                LocalDateTime.of(2025, Month.APRIL, 1, 12, 0));
-
-        return passenger;
-    }
-
-    private Flight getFlight() {
+    private Flight createFlight() {
         Flight flight = new Flight();
 
         flight.setId(1L);
@@ -162,14 +136,26 @@ public class TicketServiceTest {
         return  flight;
     }
 
-    private Ticket getTicket() {
+    private Passenger createPassenger(LocalDateTime lastPurchase) {
+        Passenger passenger = new Passenger();
+
+        passenger.setId(1L);
+        passenger.setFirstName("Jack");
+        passenger.setLastName("Black");
+        passenger.setBirthDate(LocalDate.of(1990, Month.JANUARY, 1));
+        passenger.setMale(true);
+        passenger.setLastPurchase(lastPurchase);
+
+        return passenger;
+    }
+
+    private Ticket createTicket(Long passengerId, Long flightId) {
         Ticket ticket = new Ticket();
 
         ticket.setId(1L);
-        ticket.setPassengerId(getExistsPassenger().getId());
-        ticket.setFlightId(getFlight().getId());
-        ticket.setPurchaseDate(
-                LocalDateTime.of(2025, Month.APRIL, 1, 12, 0));
+        ticket.setPassengerId(passengerId);
+        ticket.setFlightId(flightId);
+        ticket.setPurchaseDate(LocalDateTime.now());
 
         return ticket;
     }
