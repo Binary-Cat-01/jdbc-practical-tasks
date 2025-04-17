@@ -7,7 +7,6 @@ import javax.sql.DataSource;
 import java.sql.*;
 
 public class PassengerRepository {
-
     private final PassengerMapper mapper;
     private final DataSource dataSource;
 

@@ -59,6 +59,8 @@ public class TicketServiceTest {
         doAnswer(TicketServiceTest::executeAllTransaction).when(transactionProcessor)
                                                           .executeTransactional(anyList());
 
+        var inOrder = inOrder(passengerRepository, ticketRepository);
+
 //        when:
         var actualTicket = ticketService.purchase(existsPassenger, flight);
 
@@ -97,9 +99,6 @@ public class TicketServiceTest {
         * сконфигурирую так, чтобы он выполнял фактически переданные в него объекты
         * Transaction. А с помощью verify проверю, что запускались именно те метод-референсы,
         * которые ожидаются в данном тестовом сценарии. */
-        
-        var inOrder = inOrder(passengerRepository, ticketRepository);
-
         inOrder.verify(passengerRepository).updateLastPurchaseTransactional(
                 any(Connection.class), eq(existsPassenger));
 
@@ -124,6 +123,8 @@ public class TicketServiceTest {
         doAnswer(TicketServiceTest::executeAllTransaction).when(transactionProcessor)
                                                           .executeTransactional(anyList());
 
+        var inOrder = inOrder(passengerRepository, ticketRepository);
+
 //        when:
         var actualTicket = ticketService.purchase(notExistsPassenger, flight);
 
@@ -137,8 +138,6 @@ public class TicketServiceTest {
 
         assertEquals(localDateTimeCaptor.getValue(), actualTicket.getPurchaseDate());
         assertEquals(notExistsPassenger.getLastPurchase(), actualTicket.getPurchaseDate());
-
-        var inOrder = inOrder(passengerRepository, ticketRepository);
 
         inOrder.verify(passengerRepository).createTransactional(
                 any(Connection.class), eq(notExistsPassenger));
