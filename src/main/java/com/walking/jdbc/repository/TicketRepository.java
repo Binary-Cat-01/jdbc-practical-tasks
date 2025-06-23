@@ -49,22 +49,34 @@ public class TicketRepository {
     public Ticket create(Ticket ticket) {
         try (Connection connection = dataSource.getConnection()) {
 
-            createWith(connection, ticket);
+            create(connection, ticket);
         } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при добавлении билета '%s'".formatted(ticket), e);
+            throw new RuntimeException("Ошибка при создании билета '%s'".formatted(ticket), e);
         }
 
         return ticket;
     }
 
-    public void createTransactional(Connection connection, Object ticket) {
-        if (!Ticket.class.equals(ticket.getClass())) {
-            throw new IllegalArgumentException(
-                    ("Объект '%s' должен принадлежать типу '%s', но принадлежит типу '%s'")
-                            .formatted(ticket, Ticket.class, ticket.getClass()));
+    public Ticket create(Connection connection, Ticket ticket) {
+        String sql = """
+                insert into ticket
+                (id, passenger_id, flight_id, purchase_date) values
+                (?, ?, ?, ?)
+                """;
+
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+
+            preparedStatement.setLong(1, ticket.getId());
+            preparedStatement.setLong(2, ticket.getPassengerId());
+            preparedStatement.setLong(3, ticket.getFlightId());
+            preparedStatement.setTimestamp(4, Timestamp.valueOf(ticket.getPurchaseDate()));
+
+            preparedStatement.executeUpdate();
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при создании билета '%s'".formatted(ticket), e);
         }
 
-        createWith(connection, (Ticket) ticket);
+        return ticket;
     }
 
     //В данном случае мы хотим вставить все записи, а если в процессе возникнет исключение,
@@ -87,8 +99,7 @@ public class TicketRepository {
                     preparedStatement.setLong(1, ticket.getId());
                     preparedStatement.setLong(2, ticket.getPassengerId());
                     preparedStatement.setLong(3, ticket.getFlightId());
-                    preparedStatement.setTimestamp(
-                            4, Timestamp.valueOf(ticket.getPurchaseDate()));
+                    preparedStatement.setTimestamp(4, Timestamp.valueOf(ticket.getPurchaseDate()));
 
                     preparedStatement.addBatch();
                 }
@@ -99,49 +110,10 @@ public class TicketRepository {
             } catch (Exception e) {
                 connection.rollback();
 
-                if (e instanceof SQLException) {
-                    throw e;
-                }
+                throw e;
             }
-        } catch (SQLException e) {
+        } catch (Exception e) {
             throw new RuntimeException("Ошибка при добавлении билетов '%s'".formatted(tickets), e);
-        }
-    }
-
-    public Long getNextId() {
-        String sql = "select nextval('ticket_id_seq') as nextId";
-
-        try (Connection connection = dataSource.getConnection();
-             Statement statement = connection.createStatement()) {
-
-            ResultSet result = statement.executeQuery(sql);
-
-            return result.getLong("nextId");
-        } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при получении значения id для билета", e);
-        }
-    }
-
-    /*логику запроса к бд, с помощью конкретного объекта Connection вынес в приватный метод,
-    * который используется и для транзакционного и для не транзакционного выполнения*/
-    private void createWith(Connection connection, Ticket ticket) {
-        String sql = """
-                insert into ticket
-                (id, passenger_id, flight_id, purchase_date) values
-                (?, ?, ?, ?)
-                """;
-
-        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
-
-            preparedStatement.setLong(1, ticket.getId());
-            preparedStatement.setLong(2, ticket.getPassengerId());
-            preparedStatement.setLong(3, ticket.getFlightId());
-            preparedStatement.setTimestamp(
-                    4,Timestamp.valueOf(ticket.getPurchaseDate()));
-
-            preparedStatement.executeUpdate();
-        } catch (SQLException e) {
-            throw new RuntimeException("Ошибка при создании билета '%s'".formatted(ticket), e);
         }
     }
 }

@@ -16,10 +16,18 @@ public class PassengerRepository {
     }
 
     public boolean existsById(Long id) {
+        try (Connection connection = dataSource.getConnection()) {
+
+            return existsById(connection, id);
+        } catch (SQLException e) {
+            throw new RuntimeException("Ошибка при запросе пассажира с id = %s".formatted(id), e);
+        }
+    }
+
+    public boolean existsById(Connection connection, Long id) {
         String sql = "select from passenger where id = ?";
 
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
+        try (PreparedStatement preparedStatement = connection.prepareStatement(sql)) {
 
             preparedStatement.setLong(1, id);
 
@@ -31,10 +39,16 @@ public class PassengerRepository {
         }
     }
 
+    public Passenger createOrUpdate(Connection connection, Passenger passenger) {
+        return existsById(connection, passenger.getId()) ?
+                updateLastPurchase(connection, passenger) :
+                create(connection, passenger);
+    }
+
     public Passenger create(Passenger passenger) {
         try (Connection connection = dataSource.getConnection()) {
 
-            createWith(connection, passenger);
+            create(connection, passenger);
         } catch (SQLException e) {
             throw new RuntimeException(
                     "Ошибка при создании пассажира '%s'".formatted(passenger), e);
@@ -43,27 +57,7 @@ public class PassengerRepository {
         return passenger;
     }
 
-    public void createTransactional(Connection connection, Object passenger) {
-        if (!Passenger.class.equals(passenger.getClass())) {
-            throw new IllegalArgumentException(
-                    "Объект '%s' должен принадлежать типу '%s', но принадлежит типу '%s'"
-                            .formatted(passenger, Passenger.class, passenger.getClass()));
-        }
-
-        createWith(connection, (Passenger) passenger);
-    }
-
-    public void updateLastPurchaseTransactional(Connection connection, Object passenger) {
-        if (!Passenger.class.equals(passenger.getClass())) {
-            throw new IllegalArgumentException(
-                    ("Объект '%s' должен принадлежать типу '%s', но принадлежит типу '%s'")
-                            .formatted(passenger, Passenger.class, passenger.getClass()));
-        }
-
-        updateLastPurchaseWith(connection, (Passenger) passenger);
-    }
-
-    private void createWith(Connection connection, Passenger passenger) {
+    public Passenger create(Connection connection, Passenger passenger) {
         String sql = """
                 insert into passenger
                 (id, first_name, last_name, birth_date, male, last_purchase) values
@@ -85,9 +79,11 @@ public class PassengerRepository {
             throw new RuntimeException(
                     "Ошибка при создании пассажира '%s'".formatted(passenger), e);
         }
+
+        return passenger;
     }
 
-    private void updateLastPurchaseWith(Connection connection, Passenger passenger) {
+    public Passenger updateLastPurchase(Connection connection, Passenger passenger) {
         String sql = """
                 update passenger set
                 last_purchase = ?
@@ -106,5 +102,7 @@ public class PassengerRepository {
             throw new RuntimeException("Ошибка при обновлении последней покупки пассажира '%s'"
                             .formatted(passenger), e);
         }
+
+        return passenger;
     }
 }
